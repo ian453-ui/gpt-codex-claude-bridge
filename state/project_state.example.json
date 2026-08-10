@@ -1,0 +1,7 @@
+{
+  "protocol_version": "2.0",
+  "active_project_id": "EXAMPLE_PROJECT",
+  "active_task_id": null,
+  "updated_at": null,
+  "external_artifact_layer": {"provider": "Google Drive", "execution_lock": false}
+}

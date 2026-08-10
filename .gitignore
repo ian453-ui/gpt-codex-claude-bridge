@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.DS_Store
+.env
+*.key
+*.pem
+state/tasks.jsonl
+state/project_state.json
+state/agent_registry.json
+logs/*.jsonl
+handoffs/*.json
+!state/*.example.json
+!logs/.gitkeep
+!handoffs/.gitkeep
+

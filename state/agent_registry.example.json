@@ -1,0 +1,10 @@
+{
+  "protocol_version": "2.0",
+  "agents": [
+    {"id": "HUMAN", "role": "authority and acceptance owner"},
+    {"id": "CHATGPT", "role": "planning and cross-device coordinator"},
+    {"id": "WORK", "role": "ChatGPT Work execution surface"},
+    {"id": "CODEX", "role": "local implementation and verification agent"},
+    {"id": "CLAUDE", "role": "delegated execution agent"}
+  ]
+}

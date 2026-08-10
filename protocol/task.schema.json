@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ian453-ui/gpt-codex-claude-bridge/protocol/task.schema.json",
+  "title": "Multi-Agent Task Event",
+  "type": "object",
+  "required": ["protocol_version", "event_id", "event_at", "task_id", "project_id", "status", "current_owner", "objective", "acceptance_criteria"],
+  "properties": {
+    "protocol_version": {"const": "2.0"},
+    "event_id": {"type": "string", "minLength": 1},
+    "event_at": {"type": "string", "format": "date-time"},
+    "task_id": {"type": "string", "minLength": 1},
+    "project_id": {"type": "string", "minLength": 1},
+    "status": {"enum": ["PENDING", "CLAIMED", "IN_PROGRESS", "REVIEW", "DONE", "BLOCKED", "FAILED"]},
+    "current_owner": {"enum": ["HUMAN", "CHATGPT", "WORK", "CODEX", "CLAUDE"]},
+    "previous_owner": {"type": ["string", "null"]},
+    "title": {"type": "string"},
+    "objective": {"type": "string", "minLength": 1},
+    "acceptance_criteria": {"type": "array", "items": {"type": "string"}},
+    "latest_handoff": {"type": ["string", "null"]},
+    "verified": {"type": "boolean"},
+    "metadata": {"type": "object"}
+  },
+  "additionalProperties": true
+}
