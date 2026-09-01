@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.vietbridge.drive-inbound</string>
+  <key>ProgramArguments</key><array>
+    <string>/usr/bin/python3</string>
+    <string>REPLACE_WITH_REPO/scripts/drive_inbound.py</string>
+    <string>--document-id</string><string>REPLACE_WITH_DOCUMENT_ID</string>
+    <string>--principal</string><string>codex-on-this-mac</string>
+    <string>--token-command</string><string>REPLACE_WITH_TOKEN_COMMAND</string>
+    <string>--poll-seconds</string><string>30</string>
+  </array>
+  <key>WorkingDirectory</key><string>REPLACE_WITH_REPO</string>
+  <key>EnvironmentVariables</key><dict>
+    <key>BRIDGE_AUTH_CONFIG</key><string>REPLACE_WITH_LOCAL_AUTH_POLICY</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>REPLACE_WITH_LOCAL_LOG_DIR/drive-inbound.stdout.log</string>
+  <key>StandardErrorPath</key><string>REPLACE_WITH_LOCAL_LOG_DIR/drive-inbound.stderr.log</string>
+</dict></plist>

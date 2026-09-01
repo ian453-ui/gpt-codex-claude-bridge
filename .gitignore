@@ -9,6 +9,7 @@ state/project_state.json
 state/agent_registry.json
 state/auth_policy.json
 state/nonces/
+state/drive_inbound_receipts.jsonl
 logs/*.jsonl
 handoffs/*.json
 !state/*.example.json

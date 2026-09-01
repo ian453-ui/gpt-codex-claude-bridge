@@ -116,3 +116,64 @@ handling, and nonce replay protection.
 
 GitHub is the versioned protocol layer. Google Drive may mirror tasks and
 artifacts, but must not act as the execution lock.
+
+## Google Drive inbound adapter
+
+`scripts/drive_inbound.py` provides the temporary ChatGPT-to-Codex route while
+the ChatGPT GitHub Connector is read-only:
+
+```text
+ChatGPT -> Google Doc TASK_QUEUE -> revision-guarded CLAIM -> local control plane
+Codex   -> GitHub commits + Google Doc RESULT -> ChatGPT readback
+```
+
+It accepts only the newest unclaimed task whose record contains both
+`status: READY` and `current_owner: CODEX`. Completed tasks, active leases, and
+previously accepted `(task_id, task_fingerprint)` pairs are skipped. A Google
+Docs `requiredRevisionId` makes competing claims mutually exclusive; a losing
+worker re-fetches instead of executing. Claims have a bounded lease so a crash
+before local acceptance can recover. The local transition still passes through
+the authenticated actor policy from the previous section.
+
+The adapter uses the Google Docs REST API and needs a short-lived OAuth access
+token with permission to read and edit the queue document. Provide it either as
+an environment variable or through a command that prints a fresh token:
+
+```bash
+export BRIDGE_TASK_QUEUE_DOCUMENT_ID='replace-with-document-id'
+export GOOGLE_DRIVE_ACCESS_TOKEN='short-lived-token'
+python3 scripts/drive_inbound.py \
+  --principal codex-on-this-mac \
+  --task-id ACC-007
+```
+
+For continuous polling, prefer a token command backed by the local OS keychain
+or an OAuth helper; never place a token in shell history, the repository, a
+plist, task state, or logs:
+
+```bash
+python3 scripts/drive_inbound.py \
+  --document-id "$BRIDGE_TASK_QUEUE_DOCUMENT_ID" \
+  --principal codex-on-this-mac \
+  --token-command '/path/to/approved-helper print-access-token' \
+  --poll-seconds 30
+```
+
+Copy `examples/com.vietbridge.drive-inbound.plist` to a private location,
+replace every placeholder, and then install it with `launchctl` only after a
+working token helper is available. The checked-in plist is deliberately inert
+and contains no credentials or personal paths.
+
+Operational guarantees and limits:
+
+- Delivery is at-least-once at the document boundary and idempotent at local
+  acceptance. The adapter never claims exactly-once execution across arbitrary
+  downstream side effects.
+- Google Drive is an inbox and human-readable mirror, not the execution lock,
+  source-code store, or machine audit authority.
+- A remote claim can outlive a local crash; its lease expiry enables recovery.
+- OAuth/token failure, malformed documents, authorization failure, revision
+  conflict, or control-plane rejection fails closed.
+- When GitHub Issues write access becomes available, only the inbox transport
+  changes; task fingerprints, authenticated acceptance, receipts, lifecycle,
+  and result handling remain reusable.

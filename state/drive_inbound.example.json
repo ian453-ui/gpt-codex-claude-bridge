@@ -1,0 +1,7 @@
+{
+  "document_id": "GOOGLE_DOC_ID",
+  "principal": "codex-on-this-mac",
+  "token_env": "GOOGLE_DRIVE_ACCESS_TOKEN",
+  "poll_seconds": 30,
+  "lease_seconds": 600
+}
