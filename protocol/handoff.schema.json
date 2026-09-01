@@ -3,7 +3,7 @@
   "$id": "https://github.com/ian453-ui/gpt-codex-claude-bridge/protocol/handoff.schema.json",
   "title": "Agent Handoff",
   "type": "object",
-  "required": ["protocol_version", "handoff_id", "task_id", "created_at", "from_agent", "to_agent", "status", "summary", "next_action"],
+  "required": ["protocol_version", "handoff_id", "task_id", "created_at", "from_agent", "to_agent", "status", "summary", "next_action", "auth_context"],
   "properties": {
     "protocol_version": {"const": "2.0"},
     "handoff_id": {"type": "string", "minLength": 1},
@@ -15,7 +15,8 @@
     "summary": {"type": "string"},
     "next_action": {"type": "string"},
     "artifacts": {"type": "array", "items": {"type": "string"}},
-    "acceptance_evidence": {"type": "array", "items": {"type": "string"}}
+    "acceptance_evidence": {"type": "array", "items": {"type": "string"}},
+    "auth_context": {"$ref": "task.schema.json#/$defs/auth_context"}
   },
   "additionalProperties": false
 }

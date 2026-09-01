@@ -7,9 +7,10 @@ __pycache__/
 state/tasks.jsonl
 state/project_state.json
 state/agent_registry.json
+state/auth_policy.json
+state/nonces/
 logs/*.jsonl
 handoffs/*.json
 !state/*.example.json
 !logs/.gitkeep
 !handoffs/.gitkeep
-

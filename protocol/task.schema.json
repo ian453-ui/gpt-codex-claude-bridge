@@ -3,7 +3,7 @@
   "$id": "https://github.com/ian453-ui/gpt-codex-claude-bridge/protocol/task.schema.json",
   "title": "Multi-Agent Task Event",
   "type": "object",
-  "required": ["protocol_version", "event_id", "event_at", "task_id", "project_id", "status", "current_owner", "objective", "acceptance_criteria"],
+  "required": ["protocol_version", "event_id", "event_at", "task_id", "project_id", "status", "current_owner", "objective", "acceptance_criteria", "auth_context"],
   "properties": {
     "protocol_version": {"const": "2.0"},
     "event_id": {"type": "string", "minLength": 1},
@@ -18,7 +18,9 @@
     "acceptance_criteria": {"type": "array", "items": {"type": "string"}},
     "latest_handoff": {"type": ["string", "null"]},
     "verified": {"type": "boolean"},
-    "metadata": {"type": "object"}
+    "metadata": {"type": "object"},
+    "auth_context": {"$ref": "#/$defs/auth_context"}
   },
-  "additionalProperties": true
+  "additionalProperties": true,
+  "$defs": {"auth_context": {"type":"object","required":["version","actor","principal","transport","credential_ref","policy_id","request_nonce","verified_at"],"properties":{"version":{"const":1},"actor":{"enum":["HUMAN","CHATGPT","WORK","CODEX","CLAUDE"]},"principal":{"type":"string"},"transport":{"type":"string"},"credential_ref":{"type":"string"},"policy_id":{"type":"string"},"request_nonce":{"type":"string"},"verified_at":{"type":"string","format":"date-time"}},"additionalProperties":false}}
 }

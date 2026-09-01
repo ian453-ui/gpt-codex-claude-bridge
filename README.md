@@ -2,11 +2,30 @@
 
 A transport-preserving control plane for handing one task across HUMAN,
 CHATGPT, WORK, CODEX, and CLAUDE without losing its identity or audit trail.
+Every mutation is bound to a cryptographically verified transport principal and
+authorized as the corresponding bridge actor.
 
-The control plane wraps an existing bridge rather than replacing it. A local
-file queue, MCP server, CLI, socket, or HTTP service can remain the execution
-transport and ownership lock. This repository standardizes shared task state,
-handoffs, execution events, inheritance, review, and verification.
+## Security boundary and request flow
+
+```text
+transport credential (local secret store / environment; never persisted here)
+  -> HMAC-signed request + principal + transport
+  -> scripts/bridge_auth.py verifies principal binding, time, signature, policy
+  -> scripts/control_plane.py checks actor, owner, action scope, lifecycle
+  -> one-time nonce consumed
+  -> task / handoff / audit mutation with public auth_context only
+```
+
+The existing local queue, MCP server, CLI, socket, HTTP service, and their
+ownership locks remain authoritative. This layer does not authenticate a
+transport itself; it binds the identity already assigned to that transport to
+one bridge actor. Missing authentication, an unknown principal, wrong
+transport, expired timestamp, reused nonce, invalid signature, actor mismatch,
+or missing scope fails closed before task state changes.
+
+Credentials and raw signatures are never written to task state, project state,
+logs, handoffs, schemas, or examples. A local policy names only an environment
+variable and a non-sensitive `credential_ref`.
 
 ## Lifecycle
 
@@ -16,26 +35,84 @@ PENDING -> CLAIMED -> IN_PROGRESS -> REVIEW -> DONE
                          +-> BLOCKED   +-> FAILED
 ```
 
-Successful execution enters `REVIEW`. A task becomes `DONE` only after its
-acceptance criteria have been verified.
+`DONE` is available only through `verify`, and only a principal with
+`task:verify` may perform it.
 
-## Quick start
+## Local setup
 
 ```bash
-python3 scripts/control_plane.py init --project-id MY_PROJECT
-python3 scripts/control_plane.py create \
-  --task-id TASK-001 --owner CODEX \
-  --objective "Implement the bridge adapter" \
-  --acceptance "The existing transport still works"
-python3 scripts/control_plane.py resolve
+cp state/auth_policy.example.json state/auth_policy.json
+export BRIDGE_AUTH_CONFIG="$PWD/state/auth_policy.json"
+export BRIDGE_CODEX_SECRET='replace-with-a-random-secret-from-your-secret-store'
+export BRIDGE_CLAUDE_SECRET='replace-with-a-different-random-secret'
 ```
 
-Runtime state is intentionally ignored by Git. Copy or initialize it locally;
-never commit secrets, private task content, absolute personal paths, or logs.
+Keep `state/auth_policy.json` local. It is ignored by Git. Adjust its principals,
+transports, actors, environment-variable names, and scopes to match the real
+transport identities. Never put secret values in that file.
 
-## Google Drive and GitHub
+## Authenticated CLI example
 
-GitHub is the versioned protocol/control-plane layer. Google Drive can provide
-external knowledge and artifact references, but should not be used as the
-execution lock. Transport adapters retain the same `task_id` in both layers.
+The signature covers the exact action and JSON payload, so changed arguments
+invalidate it. This example initializes a project:
 
+```bash
+PAYLOAD='{"project_id":"MY_PROJECT"}'
+STAMP="$(python3 -c 'from datetime import datetime,timezone; print(datetime.now(timezone.utc).isoformat())')"
+NONCE="init-$(python3 -c 'import secrets; print(secrets.token_hex(16))')"
+SIG="$(python3 scripts/bridge_auth.py \
+  --action init --payload-json "$PAYLOAD" \
+  --principal codex-on-this-mac --transport LOCAL_CLI \
+  --secret-env BRIDGE_CODEX_SECRET --timestamp "$STAMP" --nonce "$NONCE")"
+python3 scripts/control_plane.py init --project-id MY_PROJECT \
+  --auth-principal codex-on-this-mac --auth-transport LOCAL_CLI \
+  --auth-timestamp "$STAMP" --auth-nonce "$NONCE" --auth-signature "$SIG"
+```
+
+For `create`, the signed payload uses these exact keys:
+
+```json
+{"task_id":"TASK-001","owner":"CODEX","objective":"Implement adapter","acceptance":[]}
+```
+
+Read-only resolution remains intentionally compatible and needs no credential:
+
+```bash
+python3 scripts/control_plane.py resolve
+python3 scripts/control_plane.py resolve --task-id TASK-001
+```
+
+## Policy scopes
+
+- `project:init`
+- `task:create` and elevated `task:create:any`
+- `task:transition:self` and elevated `task:transition:any`
+- `task:handoff:self` and elevated `task:handoff:any`
+- `task:log:self`
+- `task:verify`
+
+Do not grant elevated scopes to ordinary agent principals. Use a separately
+bound human/admin/verifier principal for cross-owner operations.
+
+## Migration from the unauthenticated CLI
+
+Existing task IDs, lifecycle, JSONL state, handoff files, resolve behavior, and
+transport authority remain unchanged. Mutating commands now require five auth
+arguments and a local policy. Existing events without `auth_context` remain
+readable; all new mutation events include it. Copy the example policy, configure
+one principal per real transport identity, load secrets externally, then update
+the transport adapter to sign its exact command payload.
+
+## Tests
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+Tests cover allowed identity use, missing/invalid auth without mutation,
+impersonation, cross-owner denial, CODEX-to-CLAUDE handoff, verifier permission,
+secret non-persistence, resolve compatibility, fail-closed policy/transport
+handling, and nonce replay protection.
+
+GitHub is the versioned protocol layer. Google Drive may mirror tasks and
+artifacts, but must not act as the execution lock.

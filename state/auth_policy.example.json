@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "policy_id": "example-local-policy",
+  "max_clock_skew_seconds": 300,
+  "principals": {
+    "codex-on-this-mac": {
+      "actor": "CODEX", "transport": "LOCAL_CLI", "secret_env": "BRIDGE_CODEX_SECRET",
+      "credential_ref": "env:BRIDGE_CODEX_SECRET",
+      "scopes": ["project:init", "task:create", "task:transition:self", "task:handoff:self", "task:log:self", "task:verify"]
+    },
+    "claude-through-local-bridge": {
+      "actor": "CLAUDE", "transport": "LOCAL_CLAUDE_BRIDGE", "secret_env": "BRIDGE_CLAUDE_SECRET",
+      "credential_ref": "env:BRIDGE_CLAUDE_SECRET",
+      "scopes": ["task:transition:self", "task:handoff:self", "task:log:self"]
+    }
+  }
+}
