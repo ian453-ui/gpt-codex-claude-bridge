@@ -2,11 +2,13 @@
 """Authenticated actor binding for the bridge control plane."""
 
 import argparse
+import ctypes
 import hashlib
 import hmac
 import json
 import os
 import time
+from ctypes import wintypes
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -15,6 +17,54 @@ MAX_CLOCK_SKEW_SECONDS = 300
 
 class AuthError(ValueError):
     pass
+
+WINDOWS_CREDENTIAL_PREFIX = "windows-credential-manager:"
+
+class _CREDENTIALW(ctypes.Structure):
+    _fields_ = [
+        ("Flags", wintypes.DWORD), ("Type", wintypes.DWORD),
+        ("TargetName", wintypes.LPWSTR), ("Comment", wintypes.LPWSTR),
+        ("LastWritten", wintypes.FILETIME), ("CredentialBlobSize", wintypes.DWORD),
+        ("CredentialBlob", ctypes.POINTER(ctypes.c_ubyte)), ("Persist", wintypes.DWORD),
+        ("AttributeCount", wintypes.DWORD), ("Attributes", ctypes.c_void_p),
+        ("TargetAlias", wintypes.LPWSTR), ("UserName", wintypes.LPWSTR),
+    ]
+
+def read_windows_credential(target):
+    """Read one Generic Credential without exposing it to a subprocess."""
+    if os.name != "nt":
+        raise AuthError("Windows Credential Manager is unavailable on this platform")
+    advapi32 = ctypes.WinDLL("Advapi32.dll", use_last_error=True)
+    credential = ctypes.POINTER(_CREDENTIALW)()
+    advapi32.CredReadW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+                                   ctypes.POINTER(ctypes.POINTER(_CREDENTIALW))]
+    advapi32.CredReadW.restype = wintypes.BOOL
+    advapi32.CredFree.argtypes = [ctypes.c_void_p]
+    if not advapi32.CredReadW(target, 1, 0, ctypes.byref(credential)):
+        raise AuthError(f"Windows credential is unavailable: {target}")
+    try:
+        item = credential.contents
+        raw = ctypes.string_at(item.CredentialBlob, item.CredentialBlobSize)
+        try:
+            return raw.decode("utf-16-le")
+        except UnicodeDecodeError:
+            return raw.decode("utf-8")
+    finally:
+        advapi32.CredFree(credential)
+
+def resolve_secret(record, environ=None, credential_reader=None):
+    environ = environ or os.environ
+    credential_ref = record.get("credential_ref", "")
+    if isinstance(credential_ref, str) and credential_ref.startswith(WINDOWS_CREDENTIAL_PREFIX):
+        target = credential_ref[len(WINDOWS_CREDENTIAL_PREFIX):]
+        if not target:
+            raise AuthError("Windows credential target is empty")
+        return (credential_reader or read_windows_credential)(target)
+    secret_env = record.get("secret_env")
+    secret = environ.get(secret_env, "") if isinstance(secret_env, str) else ""
+    if not secret:
+        raise AuthError("principal credential is unavailable")
+    return secret
 
 def canonical_request(action, payload, principal, transport, timestamp, nonce):
     body = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
@@ -36,7 +86,8 @@ def load_policy(path=None):
         raise AuthError("invalid auth policy")
     return policy
 
-def authenticate(action, payload, auth, policy=None, environ=None, now_epoch=None):
+def authenticate(action, payload, auth, policy=None, environ=None, now_epoch=None,
+                 credential_reader=None):
     policy = policy or load_policy(); environ = environ or os.environ
     required = ("principal", "transport", "timestamp", "nonce", "signature")
     if not auth or any(not auth.get(key) for key in required):
@@ -49,8 +100,8 @@ def authenticate(action, payload, auth, policy=None, environ=None, now_epoch=Non
     except (TypeError, ValueError) as exc: raise AuthError("invalid authentication timestamp") from exc
     if abs((now_epoch if now_epoch is not None else time.time()) - signed_at) > policy.get("max_clock_skew_seconds", MAX_CLOCK_SKEW_SECONDS):
         raise AuthError("authentication timestamp outside allowed clock skew")
-    secret_env = record.get("secret_env"); secret = environ.get(secret_env, "") if isinstance(secret_env, str) else ""
-    if not secret: raise AuthError("principal credential is unavailable")
+    secret_env = record.get("secret_env")
+    secret = resolve_secret(record, environ, credential_reader)
     expected = compute_signature(secret, action, payload, auth["principal"], transport, auth["timestamp"], auth["nonce"])
     if not hmac.compare_digest(expected, auth["signature"].lower()): raise AuthError("invalid request signature")
     return {"version":1,"actor":actor,"principal":auth["principal"],"transport":transport,
@@ -79,9 +130,14 @@ def main():
     parser=argparse.ArgumentParser(description="Sign one bridge control-plane request")
     parser.add_argument("--action",required=True); parser.add_argument("--payload-json",required=True)
     parser.add_argument("--principal",required=True); parser.add_argument("--transport",required=True)
-    parser.add_argument("--secret-env",required=True); parser.add_argument("--timestamp"); parser.add_argument("--nonce",required=True)
-    args=parser.parse_args(); timestamp=args.timestamp or datetime.now(timezone.utc).isoformat(); secret=os.environ.get(args.secret_env)
-    if not secret: parser.error(f"environment variable {args.secret_env} is not set")
+    source=parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--secret-env"); source.add_argument("--credential-ref")
+    parser.add_argument("--timestamp"); parser.add_argument("--nonce",required=True)
+    args=parser.parse_args(); timestamp=args.timestamp or datetime.now(timezone.utc).isoformat()
+    try:
+        secret=resolve_secret({"secret_env":args.secret_env,"credential_ref":args.credential_ref})
+    except AuthError as exc:
+        parser.error(str(exc))
     print(compute_signature(secret,args.action,json.loads(args.payload_json),args.principal,args.transport,timestamp,args.nonce))
 
 if __name__ == "__main__": main()

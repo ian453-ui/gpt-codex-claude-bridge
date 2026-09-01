@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from bridge_auth import compute_signature, load_policy
+from bridge_auth import compute_signature, load_policy, resolve_secret
 
 REPO=Path(__file__).resolve().parents[1]
 DEFAULT_STATE=REPO/"state/drive_inbound_receipts.jsonl"
@@ -136,8 +136,8 @@ def append_receipt(path,item):
 def control_plane(principal,action,payload,args,root=REPO):
     policy=load_policy(); record=policy["principals"].get(principal)
     if not record or record.get("actor")!="CODEX": raise InboundError("inbound principal must be policy-bound to CODEX")
-    secret=os.environ.get(record.get("secret_env", ""))
-    if not secret: raise InboundError("inbound principal credential unavailable")
+    try: secret=resolve_secret(record)
+    except ValueError as exc: raise InboundError("inbound principal credential unavailable") from exc
     timestamp=utcnow().isoformat(); nonce=f"drive-inbound-{secrets.token_hex(16)}"
     signature=compute_signature(secret,action,payload,principal,record["transport"],timestamp,nonce)
     command=[sys.executable,str(REPO/"scripts/control_plane.py"),action,*args,"--auth-principal",principal,"--auth-transport",record["transport"],"--auth-timestamp",timestamp,"--auth-nonce",nonce,"--auth-signature",signature]

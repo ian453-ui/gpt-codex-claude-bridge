@@ -51,6 +51,22 @@ Keep `state/auth_policy.json` local. It is ignored by Git. Adjust its principals
 transports, actors, environment-variable names, and scopes to match the real
 transport identities. Never put secret values in that file.
 
+### Windows worker credential
+
+Windows workers may bind a principal directly to a Generic Credential instead
+of exporting the HMAC secret. Provision a unique secret without printing it:
+
+```powershell
+python scripts/windows_credential.py provision --target BRIDGE_CODEX_WINDOWS_SECRET
+```
+
+Use `"credential_ref":
+"windows-credential-manager:BRIDGE_CODEX_WINDOWS_SECRET"` in the ignored local
+policy and omit `secret_env` for that principal. `bridge_auth.py` and
+`drive_inbound.py` read the credential in-process. Each Windows worker must use
+its own target, policy, nonce directory, receipt ledger, and control-plane root;
+never copy these from a Mac or another worker.
+
 ## Authenticated CLI example
 
 The signature covers the exact action and JSON payload, so changed arguments

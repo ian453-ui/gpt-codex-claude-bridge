@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO=Path(__file__).resolve().parents[1]; CLI=REPO/"scripts/control_plane.py"
+sys.path.insert(0,str(REPO/"scripts"))
+from bridge_auth import AuthError, resolve_secret
 
 class ControlPlaneAuthTests(unittest.TestCase):
     def setUp(self):
@@ -68,5 +70,13 @@ class ControlPlaneAuthTests(unittest.TestCase):
         cmd=[sys.executable,str(CLI),"create","--task-id","T1","--owner","CODEX","--objective","test","--auth-principal","codex","--auth-transport",record["transport"],"--auth-timestamp",ts,"--auth-nonce",nonce,"--auth-signature",sig]
         subprocess.run(cmd,env=self.env,text=True,capture_output=True,check=True); before=self.state_bytes()
         result=subprocess.run(cmd,env=self.env,text=True,capture_output=True); self.assertNotEqual(result.returncode,0); self.assertEqual(before,self.state_bytes())
+
+    def test_windows_credential_reference_is_resolved_without_environment_secret(self):
+        record={"credential_ref":"windows-credential-manager:BRIDGE_CODEX_WINDOWS_SECRET"}
+        self.assertEqual(resolve_secret(record,{},lambda target: "private-test-value"),"private-test-value")
+
+    def test_empty_windows_credential_target_fails_closed(self):
+        with self.assertRaises(AuthError):
+            resolve_secret({"credential_ref":"windows-credential-manager:"},{},lambda target: "unused")
 
 if __name__=="__main__": unittest.main()
