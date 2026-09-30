@@ -133,6 +133,26 @@ handling, and nonce replay protection.
 GitHub is the versioned protocol layer. Google Drive may mirror tasks and
 artifacts, but must not act as the execution lock.
 
+## GitHub Issues writer
+
+After the one-time ACC-011 bootstrap, GitHub Issues are the default task
+transport. The ChatGPT GitHub Connector remains read-only, so mutations are
+performed by an authenticated local worker through `scripts/github_writer.py`.
+The writer supports task creation/readback, exact-owner search, status/owner
+updates, and RESULT/HANDOFF comments while preserving `task_id` and owner
+history. Its provider abstraction allows a future GitHub App implementation.
+
+```bash
+python3 scripts/github_writer.py health
+python3 scripts/github_writer.py search --owner CODEX
+```
+
+GitHub is durable ingress and audit coordination, not an execution lock. Every
+worker must still use the HMAC-authenticated local control plane for claims and
+machine execution. Drive remains available only for bootstrap and large
+artifacts; no recurring Drive poller is required. See
+`protocol/github-issues.md` for the transport contract.
+
 ## Google Drive inbound adapter
 
 `scripts/drive_inbound.py` provides the temporary ChatGPT-to-Codex route while

@@ -10,6 +10,10 @@
 - For “continue”, “继续”, “接着做”, “推进”, or equivalent, resolve the active
   project and newest non-DONE task. Ask for context only if state conflicts.
 - Existing transports and atomic ownership locks remain authoritative.
+- After ACC-011, GitHub Issues are the default durable task transport. The
+  authenticated local control plane remains the only machine execution lock.
+- The ChatGPT GitHub Connector is read-only; local authenticated workers perform
+  GitHub mutations. Use Drive only for bootstrap or large artifacts.
 - Authenticate every mutating request and bind its verified transport principal
   to exactly one registered actor before authorization or file writes.
 - Fail closed without mutating state when authentication, actor binding, policy,
