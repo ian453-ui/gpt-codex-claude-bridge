@@ -144,7 +144,7 @@ history. Its provider abstraction allows a future GitHub App implementation.
 
 ```bash
 python3 scripts/github_writer.py health
-python3 scripts/github_writer.py search --owner CODEX
+python3 scripts/github_writer.py search --owner MAC_CODEX
 ```
 
 GitHub is durable ingress and audit coordination, not an execution lock. Every
@@ -153,14 +153,19 @@ machine execution. Drive remains available only for bootstrap and large
 artifacts; no recurring Drive poller is required. See
 `protocol/github-issues.md` for the transport contract.
 
-Normal GPT-to-local ingress is a validated JSON packet, not a Drive poll:
+When a ChatGPT session cannot create an Issue directly, it emits the exact
+`GITHUB_TASK_PACKET_READY` block defined in
+`protocol/chatgpt-task-entry.md`. The user sends that block to a local Codex
+worker, which creates the Issue and returns its verified URL. The marker means
+the packet is ready for ingestion; it does not claim that GitHub accepted it.
+Normal GPT-to-local ingress is a validated packet:
 
 ```bash
-python3 scripts/github_writer.py ingest --task-packet-file task.json --execution-target MAC
-# or provide the same JSON object on stdin with --task-packet-file -
+python3 scripts/github_writer.py ingest --task-packet-file task_packet.txt --execution-target MAC
+# or provide the same block on stdin with --task-packet-file -
 ```
 
-Packets must name one of the seven registered agents and include the sticky
+Raw JSON remains compatible. Packets must name one of the seven registered agents and include the sticky
 owner fields documented in `protocol/github-issues.md`. The writer rejects a
 missing owner, wrong execution target, unauthorized owner change, malformed
 packet, wrong repository, and conflicting duplicate task ID before Issue

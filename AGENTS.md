@@ -14,8 +14,16 @@
 - Existing transports and atomic ownership locks remain authoritative.
 - After ACC-011, GitHub Issues are the default durable task transport. The
   authenticated local control plane remains the only machine execution lock.
-- The ChatGPT GitHub Connector is read-only; local authenticated workers perform
-  GitHub mutations. Use Drive only for bootstrap or large artifacts.
+- When a ChatGPT session cannot create a GitHub Issue directly, it must output
+  the standalone `GITHUB_TASK_PACKET_READY` block in
+  `protocol/chatgpt-task-entry.md`. A local worker copies that block to
+  `github_writer.py ingest`, then reports the real Issue URL after readback.
+  Never describe a packet as an already-created Issue. Drive is for large
+  artifacts or emergency bootstrap.
+- On a user wake phrase with a task ID, inspect the current packet or the
+  recent authorized ChatGPT conversation for that exact task ID. Ingest only
+  one complete matching packet. If no packet or owner is available, ask for
+  the packet; never invent it or claim Issue creation.
 - Ordinary tasks use `assignment_mode=STICKY`,
   `handoff_policy=USER_EXPLICIT_ONLY`, and
   `cross_agent_read=DENY_BY_DEFAULT`. Continue with the exact current owner.

@@ -8,7 +8,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts"))
 from github_writer import (BRIDGE_AGENTS, DEFAULT_REPOSITORY, GhCliProvider,
                            GitHubTaskBus, GitHubWriterError, decode_task,
-                           encode_task)
+                           encode_task, parse_task_packet)
 
 
 class FakeProvider:
@@ -119,6 +119,55 @@ class GitHubWriterTests(unittest.TestCase):
         self.assertTrue(created["created"])
         self.assertEqual(bus.read(created["issue"]["number"])["task"]["task_id"],"TASK-NODRIVE")
         self.assertFalse(hasattr(bus,"drive"))
+
+    def test_chatgpt_ready_block_ingests_and_raw_json_remains_compatible(self):
+        packet=self.sticky_packet("TASK-PACKET")
+        block=("GITHUB_TASK_PACKET_READY\n"
+               "target_agent: MAC_CODEX\n"
+               "execution_target: MAC\n"
+               "task_id: TASK-PACKET\n"
+               "next_user_action: Mac Codex 继续执行 TASK-PACKET\n"
+               "```json\n"+json.dumps(packet,indent=2)+"\n```\n")
+        self.assertEqual(parse_task_packet(block),packet)
+        self.assertEqual(parse_task_packet("GITHUB_TASK_PACKET_READY\n```json\n"+json.dumps(packet)+"\n```"),packet)
+        self.assertEqual(parse_task_packet(json.dumps(packet)),packet)
+        bus=GitHubTaskBus(FakeProvider())
+        created=bus.ingest(parse_task_packet(block),"MAC")
+        self.assertTrue(created["created"])
+        self.assertEqual(bus.read(1,requester="MAC_CODEX")["task"]["task_id"],"TASK-PACKET")
+
+    def test_ready_block_requires_exact_boundaries_and_unique_json_keys(self):
+        packet=json.dumps(self.sticky_packet())
+        for source in ("Here is your packet\nGITHUB_TASK_PACKET_READY\n```json\n"+packet+"\n```",
+                       "GITHUB_TASK_PACKET_READY\n```json\n"+packet+"\n```\nIssue created",
+                       "GITHUB_TASK_PACKET_READY\n```json\n{"+packet[1:-1]+',"task_id":"OTHER"}\n```'):
+            with self.subTest(source=source[:35]), self.assertRaises(GitHubWriterError):
+                parse_task_packet(source)
+
+    def test_packet_header_must_match_json_owner_target_and_task_id(self):
+        packet=self.sticky_packet()
+        block=("GITHUB_TASK_PACKET_READY\n"
+               "target_agent: MAC_CLAUDE\n"
+               "execution_target: MAC\n"
+               "task_id: TASK-001\n"
+               "next_user_action: Mac Codex 继续执行 TASK-001\n"
+               "```json\n"+json.dumps(packet)+"\n```")
+        with self.assertRaisesRegex(GitHubWriterError,"target_agent conflicts"):
+            parse_task_packet(block)
+
+    def test_new_packet_must_be_ready_and_duplicate_content_must_match(self):
+        provider=FakeProvider(); bus=GitHubTaskBus(provider)
+        packet=self.sticky_packet()
+        with self.assertRaisesRegex(GitHubWriterError,"invalid current_owner"):
+            bus.ingest(dict(packet,current_owner=None),"MAC")
+        with self.assertRaisesRegex(GitHubWriterError,"seven current owners"):
+            bus.ingest(dict(packet,current_owner="CODEX"),"MAC")
+        with self.assertRaisesRegex(GitHubWriterError,"status must be READY"):
+            bus.ingest(dict(packet,status="DONE"),"MAC")
+        self.assertEqual(provider.issues,[])
+        bus.ingest(packet,"MAC")
+        with self.assertRaisesRegex(GitHubWriterError,"conflicts"):
+            bus.ingest(dict(packet,objective="different task"),"MAC")
 
 
 if __name__ == "__main__": unittest.main()

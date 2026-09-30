@@ -21,11 +21,63 @@ TASK_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,127}$")
 ASSIGNMENT_MODE = "STICKY"
 HANDOFF_POLICY = "USER_EXPLICIT_ONLY"
 CROSS_AGENT_READ = "DENY_BY_DEFAULT"
+TASK_PACKET_READY = "GITHUB_TASK_PACKET_READY"
+MAX_TASK_PACKET_BYTES = 65536
 VALID_STATUSES = {"PENDING", "READY", "CLAIMED", "IN_PROGRESS", "REVIEW", "DONE", "BLOCKED", "FAILED"}
 
 
 class GitHubWriterError(RuntimeError):
     pass
+
+
+def parse_task_packet(source):
+    """Accept raw JSON or the exact block copied from a ChatGPT response."""
+    if not isinstance(source, str) or not source.strip():
+        raise GitHubWriterError("task packet is empty")
+    if len(source.encode("utf-8")) > MAX_TASK_PACKET_BYTES:
+        raise GitHubWriterError("task packet exceeds 65536 bytes")
+    value = source.strip()
+    headers = None
+    if not value.startswith("{"):
+        lines = value.splitlines()
+        if len(lines) < 4 or lines[0] != TASK_PACKET_READY or lines[-1] != "```":
+            raise GitHubWriterError("expected raw JSON or a standalone GITHUB_TASK_PACKET_READY block")
+        if lines[1] == "```json":
+            json_start = 2
+        else:
+            expected = ("target_agent", "execution_target", "task_id", "next_user_action")
+            if len(lines) < 8 or lines[5] != "```json":
+                raise GitHubWriterError("task packet header is malformed")
+            headers = {}
+            for key, line in zip(expected, lines[1:5]):
+                prefix = f"{key}: "
+                if not line.startswith(prefix) or not line[len(prefix):].strip():
+                    raise GitHubWriterError(f"task packet header requires {key}")
+                headers[key] = line[len(prefix):].strip()
+            json_start = 6
+        value = "\n".join(lines[json_start:-1])
+
+    def unique_keys(pairs):
+        result = {}
+        for key, item in pairs:
+            if key in result:
+                raise GitHubWriterError(f"duplicate task packet key: {key}")
+            result[key] = item
+        return result
+
+    try:
+        packet = json.loads(value, object_pairs_hook=unique_keys)
+    except json.JSONDecodeError as exc:
+        raise GitHubWriterError("task packet is invalid JSON") from exc
+    if not isinstance(packet, dict):
+        raise GitHubWriterError("task packet must be a JSON object")
+    if headers:
+        for header, field in (("target_agent", "current_owner"),
+                              ("execution_target", "execution_target"),
+                              ("task_id", "task_id")):
+            if headers[header] != packet.get(field):
+                raise GitHubWriterError(f"task packet header {header} conflicts with JSON {field}")
+    return packet
 
 
 class GitHubProvider(ABC):
@@ -230,6 +282,10 @@ class GitHubTaskBus:
 
     def ingest(self, packet, local_execution_target):
         validate_record(packet, require_sticky=True)
+        if packet["current_owner"] not in BRIDGE_AGENTS:
+            raise GitHubWriterError("new task packet requires one of the seven current owners")
+        if packet["status"] != "READY":
+            raise GitHubWriterError("new task packet status must be READY")
         if packet["execution_target"] != local_execution_target:
             raise GitHubWriterError("execution_target does not match this local writer")
         title = packet.get("title")
@@ -240,7 +296,8 @@ class GitHubTaskBus:
             issue, record = existing
             same = all(record.get(key) == packet.get(key) for key in (
                 "task_id", "current_owner", "assignment_mode", "handoff_policy",
-                "cross_agent_read", "execution_target"))
+                "cross_agent_read", "execution_target", "objective", "acceptance_criteria"))
+            same = same and issue.get("title") == title
             if not same:
                 raise GitHubWriterError("duplicate task_id conflicts with existing sticky task")
             return {"created": False, "issue": issue, "task": record}
@@ -298,8 +355,9 @@ def main():
         elif args.command == "search": value = bus.search_owner(args.owner)
         else:
             provider.health()
-            raw = (json.load(sys.stdin) if args.task_packet_file == "-" else
-                   json.loads(Path(args.task_packet_file).read_text(encoding="utf-8")))
+            source = (sys.stdin.read() if args.task_packet_file == "-" else
+                      Path(args.task_packet_file).read_text(encoding="utf-8"))
+            raw = parse_task_packet(source)
             value = bus.ingest(raw, args.execution_target)
         print(json.dumps(value, ensure_ascii=False, indent=2))
     except (GitHubWriterError, json.JSONDecodeError) as exc:
