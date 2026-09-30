@@ -11,7 +11,11 @@
     "task_id": {"type": "string", "minLength": 1},
     "project_id": {"type": "string", "minLength": 1},
     "status": {"enum": ["PENDING", "CLAIMED", "IN_PROGRESS", "REVIEW", "DONE", "BLOCKED", "FAILED"]},
-    "current_owner": {"enum": ["HUMAN", "CHATGPT", "WORK", "CODEX", "CLAUDE"]},
+    "current_owner": {"enum": ["GPT", "MAC_CODEX", "MAC_CLAUDE", "MAC_WORKBUDDY", "WINDOWS_CODEX", "WINDOWS_CLAUDE", "WINDOWS_WORKBUDDY", "HUMAN", "CHATGPT", "WORK", "CODEX", "CLAUDE"]},
+    "assignment_mode": {"enum": ["STICKY"]},
+    "handoff_policy": {"enum": ["USER_EXPLICIT_ONLY"]},
+    "cross_agent_read": {"enum": ["DENY_BY_DEFAULT"]},
+    "execution_target": {"type": "string", "minLength": 1},
     "previous_owner": {"type": ["string", "null"]},
     "title": {"type": "string"},
     "objective": {"type": "string", "minLength": 1},
@@ -22,5 +26,5 @@
     "auth_context": {"$ref": "#/$defs/auth_context"}
   },
   "additionalProperties": true,
-  "$defs": {"auth_context": {"type":"object","required":["version","actor","principal","transport","credential_ref","policy_id","request_nonce","verified_at"],"properties":{"version":{"const":1},"actor":{"enum":["HUMAN","CHATGPT","WORK","CODEX","CLAUDE"]},"principal":{"type":"string"},"transport":{"type":"string"},"credential_ref":{"type":"string"},"policy_id":{"type":"string"},"request_nonce":{"type":"string"},"verified_at":{"type":"string","format":"date-time"}},"additionalProperties":false}}
+  "$defs": {"auth_context": {"type":"object","required":["version","actor","principal","transport","credential_ref","policy_id","request_nonce","verified_at"],"properties":{"version":{"const":1},"actor":{"enum":["GPT","MAC_CODEX","MAC_CLAUDE","MAC_WORKBUDDY","WINDOWS_CODEX","WINDOWS_CLAUDE","WINDOWS_WORKBUDDY","HUMAN","CHATGPT","WORK","CODEX","CLAUDE"]},"principal":{"type":"string"},"transport":{"type":"string"},"credential_ref":{"type":"string"},"policy_id":{"type":"string"},"request_nonce":{"type":"string"},"verified_at":{"type":"string","format":"date-time"}},"additionalProperties":false}}
 }

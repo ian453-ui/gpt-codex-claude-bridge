@@ -9,9 +9,10 @@ from bridge_auth import AuthError, resolve_secret
 class ControlPlaneAuthTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory(); self.root=Path(self.tmp.name); (self.root/"state").mkdir()
-        self.secrets={"CODEX_SECRET":"codex-test-secret","CLAUDE_SECRET":"claude-test-secret","VERIFY_SECRET":"verify-test-secret"}
+        self.secrets={"CODEX_SECRET":"codex-test-secret","MAC_CODEX_SECRET":"mac-codex-test-secret","CLAUDE_SECRET":"claude-test-secret","VERIFY_SECRET":"verify-test-secret"}
         self.policy={"version":1,"policy_id":"tests","max_clock_skew_seconds":300,"principals":{
           "codex":{"actor":"CODEX","transport":"LOCAL_CLI","secret_env":"CODEX_SECRET","credential_ref":"env:CODEX_SECRET","scopes":["project:init","task:create","task:transition:self","task:handoff:self","task:log:self"]},
+          "mac-codex":{"actor":"MAC_CODEX","transport":"LOCAL_CLI","secret_env":"MAC_CODEX_SECRET","credential_ref":"env:MAC_CODEX_SECRET","scopes":["task:create","task:transition:self","task:handoff:self","task:log:self"]},
           "claude":{"actor":"CLAUDE","transport":"CLAUDE_BRIDGE","secret_env":"CLAUDE_SECRET","credential_ref":"env:CLAUDE_SECRET","scopes":["task:transition:self","task:handoff:self","task:log:self"]},
           "verifier":{"actor":"HUMAN","transport":"LOCAL_CLI","secret_env":"VERIFY_SECRET","credential_ref":"env:VERIFY_SECRET","scopes":["task:verify","task:transition:any"]}}}
         self.policy_path=self.root/"state/auth_policy.json"; self.policy_path.write_text(json.dumps(self.policy))
@@ -33,6 +34,11 @@ class ControlPlaneAuthTests(unittest.TestCase):
     def test_valid_codex_identity_can_create_and_transition(self):
         self.create(); self.call("codex","transition",{"task_id":"T1","status":"IN_PROGRESS","owner":"CODEX"},"--task-id","T1","--status","IN_PROGRESS","--owner","CODEX")
         self.assertIn('"status": "IN_PROGRESS"',subprocess.check_output([sys.executable,str(CLI),"resolve","--task-id","T1"],env=self.env,text=True))
+
+    def test_registered_mac_codex_identity_can_create_its_own_task(self):
+        result=self.call("mac-codex","create",{"task_id":"M1","owner":"MAC_CODEX","objective":"test","acceptance":[]},"--task-id","M1","--owner","MAC_CODEX","--objective","test")
+        self.assertEqual(result.returncode,0)
+        self.assertEqual(json.loads(result.stdout)["current_owner"],"MAC_CODEX")
     def test_invalid_authentication_does_not_mutate_state(self):
         before=self.state_bytes(); result=self.call("codex","create",{"task_id":"T1","owner":"CODEX","objective":"test","acceptance":[]},"--task-id","T1","--owner","CODEX","--objective","test",signature="0"*64,check=False)
         self.assertNotEqual(result.returncode,0); self.assertEqual(before,self.state_bytes())

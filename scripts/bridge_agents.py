@@ -1,0 +1,8 @@
+"""Canonical bridge agent registry and legacy compatibility aliases."""
+
+BRIDGE_AGENTS = {
+    "GPT", "MAC_CODEX", "MAC_CLAUDE", "MAC_WORKBUDDY",
+    "WINDOWS_CODEX", "WINDOWS_CLAUDE", "WINDOWS_WORKBUDDY",
+}
+LEGACY_AGENTS = {"HUMAN", "CHATGPT", "WORK", "CODEX", "CLAUDE"}
+ALL_AGENTS = BRIDGE_AGENTS | LEGACY_AGENTS

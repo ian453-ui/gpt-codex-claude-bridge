@@ -12,7 +12,9 @@ from ctypes import wintypes
 from datetime import datetime, timezone
 from pathlib import Path
 
-AGENTS = {"HUMAN", "CHATGPT", "WORK", "CODEX", "CLAUDE"}
+from bridge_agents import ALL_AGENTS
+
+AGENTS = ALL_AGENTS
 MAX_CLOCK_SKEW_SECONDS = 300
 
 class AuthError(ValueError):

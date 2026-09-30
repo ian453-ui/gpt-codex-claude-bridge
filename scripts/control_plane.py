@@ -3,11 +3,12 @@ import argparse, json, os, secrets
 from datetime import datetime, timezone
 from pathlib import Path
 from bridge_auth import AuthError, authenticate, authorize, consume_nonce, public_context
+from bridge_agents import ALL_AGENTS
 
 ROOT=Path(os.environ.get("BRIDGE_CONTROL_PLANE_ROOT",Path(__file__).resolve().parents[1]))
 TASKS,PROJECT=ROOT/"state/tasks.jsonl",ROOT/"state/project_state.json"
 LOG,HANDOFFS=ROOT/"logs/execution.jsonl",ROOT/"handoffs"
-AGENTS={"HUMAN","CHATGPT","WORK","CODEX","CLAUDE"}; STATUSES={"PENDING","CLAIMED","IN_PROGRESS","REVIEW","DONE","BLOCKED","FAILED"}
+AGENTS=ALL_AGENTS; STATUSES={"PENDING","CLAIMED","IN_PROGRESS","REVIEW","DONE","BLOCKED","FAILED"}
 
 def now(): return datetime.now(timezone.utc).isoformat()
 def atomic_json(path,value):

@@ -153,10 +153,25 @@ machine execution. Drive remains available only for bootstrap and large
 artifacts; no recurring Drive poller is required. See
 `protocol/github-issues.md` for the transport contract.
 
-## Google Drive inbound adapter
+Normal GPT-to-local ingress is a validated JSON packet, not a Drive poll:
 
-`scripts/drive_inbound.py` provides the temporary ChatGPT-to-Codex route while
-the ChatGPT GitHub Connector is read-only:
+```bash
+python3 scripts/github_writer.py ingest --task-packet-file task.json --execution-target MAC
+# or provide the same JSON object on stdin with --task-packet-file -
+```
+
+Packets must name one of the seven registered agents and include the sticky
+owner fields documented in `protocol/github-issues.md`. The writer rejects a
+missing owner, wrong execution target, unauthorized owner change, malformed
+packet, wrong repository, and conflicting duplicate task ID before Issue
+creation. There is no unauthenticated network listener. If no direct local
+ChatGPT-to-Codex channel exists, the user wake phrase is the transport trigger.
+
+## Deprecated Google Drive bootstrap adapter
+
+`scripts/drive_inbound.py` is retained for historical readability, large-file
+references, and emergency bootstrap only. It is not the ordinary task path and
+must not be installed as a recurring poller:
 
 ```text
 ChatGPT -> Google Doc TASK_QUEUE -> revision-guarded CLAIM -> local control plane
@@ -183,22 +198,19 @@ python3 scripts/drive_inbound.py \
   --task-id ACC-007
 ```
 
-For continuous polling, prefer a token command backed by the local OS keychain
-or an OAuth helper; never place a token in shell history, the repository, a
-plist, task state, or logs:
+Emergency bootstrap is a manual, one-shot operation. Never place a token in
+shell history, the repository, a plist, task state, or logs:
 
 ```bash
 python3 scripts/drive_inbound.py \
   --document-id "$BRIDGE_TASK_QUEUE_DOCUMENT_ID" \
   --principal codex-on-this-mac \
-  --token-command '/path/to/approved-helper print-access-token' \
-  --poll-seconds 30
+  --token-command '/path/to/approved-helper print-access-token'
 ```
 
-Copy `examples/com.vietbridge.drive-inbound.plist` to a private location,
-replace every placeholder, and then install it with `launchctl` only after a
-working token helper is available. The checked-in plist is deliberately inert
-and contains no credentials or personal paths.
+The historical LaunchAgent example is deliberately inert and must not be
+installed for ordinary operation. GitHub ingestion replaces background Drive
+polling.
 
 Operational guarantees and limits:
 
