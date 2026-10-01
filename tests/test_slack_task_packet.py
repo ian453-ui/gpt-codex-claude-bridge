@@ -21,6 +21,8 @@ def parent(owner="MAC_CODEX", **changes):
 class SlackTaskPacketTests(unittest.TestCase):
     def test_parent_round_trip_and_missing_owner_fails(self):
         self.assertEqual(parse_parent(parent())["current_owner"], "MAC_CODEX")
+        rendered = parent().replace("```json\n{", "```{").replace("}\n```", "}```")
+        self.assertEqual(parse_parent(rendered)["current_owner"], "MAC_CODEX")
         for owner in (None, "CODEX", ""):
             with self.subTest(owner=owner), self.assertRaises(PacketError):
                 parse_parent(parent(owner))

@@ -39,7 +39,8 @@ Specific work to complete.
 WINDOWS_CODEX, WINDOWS_CLAUDE, or WINDOWS_WORKBUDDY. A missing owner is a
 question for the user. `execution_target` is separate and never chooses the
 owner. `scripts/slack_task_packet.py parent` validates a copied parent via
-stdin; it does not authenticate, claim, or post anything.
+stdin, including Slack's normalized JSON-fence readback; it does not
+authenticate, claim, or post anything.
 
 ## Thread events
 

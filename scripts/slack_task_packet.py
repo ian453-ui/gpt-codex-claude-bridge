@@ -38,8 +38,12 @@ def _read_json(value):
 def parse_parent(text):
     if not isinstance(text, str) or len(text.encode("utf-8")) > MAX_BYTES:
         raise PacketError("parent message is invalid or too large")
+    # Slack's connector may render ```json\n{...}\n``` as ```{...}``` on
+    # readback. Accept either representation, but never multiple code blocks.
     match = re.search(r"(?m)^```json\s*\n(.*?)\n```\s*$", text, re.S)
-    if text.count("```json") != 1 or not match:
+    if not match:
+        match = re.search(r"(?m)^```(\{.*?\})```\s*$", text, re.S)
+    if text.count("```") != 2 or not match:
         raise PacketError("parent requires exactly one fenced JSON block")
     record = _read_json(match.group(1))
     if not isinstance(record, dict):
