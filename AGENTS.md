@@ -12,18 +12,18 @@
 - For “continue”, “继续”, “接着做”, “推进”, or equivalent, resolve the active
   project and newest non-DONE task. Ask for context only if state conflicts.
 - Existing transports and atomic ownership locks remain authoritative.
-- After ACC-011, GitHub Issues are the default durable task transport. The
-  authenticated local control plane remains the only machine execution lock.
-- When a ChatGPT session cannot create a GitHub Issue directly, it must output
-  the standalone `GITHUB_TASK_PACKET_READY` block in
-  `protocol/chatgpt-task-entry.md`. A local worker copies that block to
-  `github_writer.py ingest`, then reports the real Issue URL after readback.
-  Never describe a packet as an already-created Issue. Drive is for large
-  artifacts or emergency bootstrap.
-- On a user wake phrase with a task ID, inspect the current packet or the
-  recent authorized ChatGPT conversation for that exact task ID. Ingest only
-  one complete matching packet. If no packet or owner is available, ask for
-  the packet; never invent it or claim Issue creation.
+- `#agent-bridge-tasks` is the default ordinary task bus on phone and computer.
+  Each task is one Slack parent with a `bridge-task:v1` JSON packet; CLAIM,
+  PROGRESS, RESULT, HANDOFF, COUNTEREVIDENCE, REVIEW, DONE, and USER_OVERRIDE
+  stay in its thread. See `protocol/slack-tasks.md`.
+- GitHub is for code, branches, commits, PRs, and repository audit, not default
+  task ingress. `github_writer.py` remains an explicit legacy/fallback path.
+  Google Drive is for large artifacts and emergency bootstrap, not ordinary
+  task queue traffic. Never retry the read-only ChatGPT GitHub connector.
+- On a user wake phrase with a task ID, read the exact Slack parent and latest
+  thread before acting. Verify exact owner and execution target; never infer a
+  task from a bare ID or invent a missing packet. Do not background-poll Slack
+  or Drive. Slack is not an authenticated actor or execution lock.
 - Ordinary tasks use `assignment_mode=STICKY`,
   `handoff_policy=USER_EXPLICIT_ONLY`, and
   `cross_agent_read=DENY_BY_DEFAULT`. Continue with the exact current owner.

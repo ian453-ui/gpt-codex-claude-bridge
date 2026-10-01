@@ -130,13 +130,39 @@ impersonation, cross-owner denial, CODEX-to-CLAUDE handoff, verifier permission,
 secret non-persistence, resolve compatibility, fail-closed policy/transport
 handling, and nonce replay protection.
 
-GitHub is the versioned protocol layer. Google Drive may mirror tasks and
-artifacts, but must not act as the execution lock.
+Slack is the ordinary task coordination layer. GitHub is the versioned code,
+commit, branch, PR, and repository-audit layer. Neither Slack nor Drive is the
+authenticated local execution lock.
 
-## GitHub Issues writer
+## Slack-first task bus
 
-After the one-time ACC-011 bootstrap, GitHub Issues are the default task
-transport. The ChatGPT GitHub Connector remains read-only, so mutations are
+`#agent-bridge-tasks` (`C0C6PRGNGLQ`) is the default task inbox on both phone
+and computer. One parent message carries the `bridge-task:v1` JSON packet and
+human objective. Its thread carries CLAIM, PROGRESS, RESULT, HANDOFF,
+COUNTEREVIDENCE, REVIEW, DONE, and USER_OVERRIDE. The current owner is sticky;
+workers inspect only their exact owner unless the user authorizes a specific
+cross-agent read or transfer. Missing owners block for a user decision. Slack
+messages coordinate work but do not authenticate the actor or claim the local
+execution lock. See `protocol/slack-tasks.md`.
+
+`scripts/slack_task_packet.py` validates copied parent messages and thread
+events without posting, claiming, or trusting a caller-supplied actor:
+
+```bash
+python3 scripts/slack_task_packet.py parent < parent-message.txt
+python3 scripts/slack_task_packet.py event --task-id EXAMPLE-001 < thread-reply.txt
+```
+
+Agents act on explicit wake-up, not background polling. The worker must still
+enter the HMAC-authenticated control plane before machine execution. Google
+Drive is for large videos, PDFs, image bundles, ZIPs, large documents, and
+emergency bootstrap only. There is no normal Drive task queue.
+
+## GitHub Issues writer (explicit fallback only)
+
+The ACC-011/ACC-013 GitHub Issues writer remains available for legacy tasks or
+an explicitly requested fallback; it is not the default ordinary ingress. The
+ChatGPT GitHub Connector remains read-only, so GitHub mutations are
 performed by an authenticated local worker through `scripts/github_writer.py`.
 The writer supports task creation/readback, exact-owner search, status/owner
 updates, and RESULT/HANDOFF comments while preserving `task_id` and owner
@@ -147,18 +173,18 @@ python3 scripts/github_writer.py health
 python3 scripts/github_writer.py search --owner MAC_CODEX
 ```
 
-GitHub is durable ingress and audit coordination, not an execution lock. Every
+GitHub Issues can coordinate a legacy/fallback task, but are not an execution lock. Every
 worker must still use the HMAC-authenticated local control plane for claims and
-machine execution. Drive remains available only for bootstrap and large
-artifacts; no recurring Drive poller is required. See
+machine execution. Drive is reserved for large artifacts and emergency
+bootstrap; no recurring Drive poller is required. See
 `protocol/github-issues.md` for the transport contract.
 
-When a ChatGPT session cannot create an Issue directly, it emits the exact
+Only when an explicit GitHub fallback is selected, a ChatGPT session may emit the exact
 `GITHUB_TASK_PACKET_READY` block defined in
 `protocol/chatgpt-task-entry.md`. The user sends that block to a local Codex
 worker, which creates the Issue and returns its verified URL. The marker means
 the packet is ready for ingestion; it does not claim that GitHub accepted it.
-Normal GPT-to-local ingress is a validated packet:
+That fallback ingests a validated packet:
 
 ```bash
 python3 scripts/github_writer.py ingest --task-packet-file task_packet.txt --execution-target MAC
@@ -172,11 +198,11 @@ packet, wrong repository, and conflicting duplicate task ID before Issue
 creation. There is no unauthenticated network listener. If no direct local
 ChatGPT-to-Codex channel exists, the user wake phrase is the transport trigger.
 
-## Deprecated Google Drive bootstrap adapter
+## Legacy Google Drive bootstrap adapter
 
-`scripts/drive_inbound.py` is retained for historical readability, large-file
-references, and emergency bootstrap only. It is not the ordinary task path and
-must not be installed as a recurring poller:
+The historical `scripts/drive_inbound.py` adapter is retained for old `CODEX`
+tasks and emergency bootstrap only; it cannot claim the current seven-actor
+packets and must not be installed as a recurring poller:
 
 ```text
 ChatGPT -> Google Doc TASK_QUEUE -> revision-guarded CLAIM -> local control plane

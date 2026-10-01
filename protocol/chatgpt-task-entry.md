@@ -1,16 +1,16 @@
-# ChatGPT task entry for the GitHub bridge
+# Legacy GitHub task packet fallback
 
-This instruction is portable across ChatGPT conversations. It can be placed in
-the user's ChatGPT custom instructions or supplied at the start of a session.
-The repository cannot change account-wide ChatGPT instructions by itself.
+Ordinary tasks now use the Slack parent/thread contract in
+`protocol/slack-tasks.md` on phone and computer. This packet is retained only
+for an explicitly requested GitHub Issues fallback or a legacy continuation.
+Do not install it as the default ChatGPT instruction.
 
-## Instruction to give every ChatGPT session
+## Instruction for an explicit GitHub fallback
 
-> When the user asks you to send a task through the GitHub bridge, use repository
-> `ian453-ui/gpt-codex-claude-bridge`. If you can create a GitHub Issue, create
-> it and read back its URL and task metadata. If `create_issue` is unavailable
-> or denied, do not claim that you created an Issue and do not use Google Drive
-> for an ordinary task. Output one standalone `GITHUB_TASK_PACKET_READY` block
+> Only when the user explicitly requests the GitHub Issues fallback, use
+> repository `ian453-ui/gpt-codex-claude-bridge`. Do not call the built-in
+> read-only ChatGPT GitHub connector to write. Without a separately verified
+> write-capable tool, output one standalone `GITHUB_TASK_PACKET_READY` block
 > in the exact format below. Use the user's explicit `current_owner`; if it is
 > missing, ask the user instead of selecting an agent yourself. Keep the same
 > `task_id` for a continuation. Set `assignment_mode` to `STICKY`,
@@ -18,9 +18,9 @@ The repository cannot change account-wide ChatGPT instructions by itself.
 > `DENY_BY_DEFAULT`. Set `execution_target` from the explicitly requested
 > runtime, independently of owner. Use `status: READY`. Include a concrete
 > objective and acceptance criteria, and omit credentials and unrelated
-> private data. Tell the user to paste the complete block to the appropriate
-> local Codex worker; the packet becomes a GitHub Issue only after that worker
-> runs `github_writer.py ingest` and confirms readback.
+> private data. Tell the user to pass the complete block to the appropriate
+> local Codex worker. It becomes an Issue only after `github_writer.py ingest`
+> succeeds and Issue readback is confirmed.
 
 ## Exact output format
 
@@ -74,9 +74,8 @@ still required before machine execution.
 
 On a wake phrase naming a task ID, the local Codex or Workbuddy agent first
 checks the packet in the current conversation or an explicitly identified
-ChatGPT conversation. If its connected conversation tools can read recent
-ChatGPT messages, it searches the most recent relevant messages for the exact
-task ID and the complete `GITHUB_TASK_PACKET_READY` block. It ingests only one
+ChatGPT conversation. It searches for the
+exact task ID and complete `GITHUB_TASK_PACKET_READY` block. It ingests only one
 unambiguous matching packet. If the packet is unavailable, ambiguous, or has
 no `current_owner`, it stops and asks the user to paste the complete packet or
 provide its Issue URL. A task ID alone does not transfer the packet across

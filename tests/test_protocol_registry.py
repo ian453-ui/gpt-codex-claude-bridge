@@ -21,9 +21,15 @@ class ProtocolRegistryTests(unittest.TestCase):
         self.assertTrue(BRIDGE_AGENTS.issubset(handoff["properties"]["from_agent"]["enum"]))
         self.assertTrue(BRIDGE_AGENTS.issubset(handoff["properties"]["to_agent"]["enum"]))
 
-    def test_docs_deprecate_ordinary_drive_polling(self):
+    def test_docs_route_all_ordinary_tasks_to_slack_without_polling(self):
         readme=(REPO/"README.md").read_text()
-        self.assertIn("GitHub Issues are the default task",readme)
+        contract=(REPO/"AGENTS.md").read_text()
+        entry=(REPO/"protocol/chatgpt-task-entry.md").read_text()
+        slack=(REPO/"protocol/slack-tasks.md").read_text()
+        self.assertIn("`#agent-bridge-tasks` (`C0C6PRGNGLQ`) is the default task inbox",readme)
+        self.assertIn("default ordinary task bus on phone and computer",contract)
+        self.assertIn("GitHub Issues fallback",entry)
+        self.assertIn("Google Drive is for large artifacts and emergency bootstrap",slack)
         self.assertIn("must not be installed as a recurring poller",readme)
         self.assertNotIn("For continuous polling",readme)
 

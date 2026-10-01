@@ -1,17 +1,20 @@
-# GitHub Issues transport
+# Legacy GitHub Issues task transport
 
-GitHub Issues are the default durable ingress and audit transport after
-`ACC-011`. They are not the atomic execution lock. A worker must still enter
-the authenticated local control plane before machine execution or side effects.
+GitHub Issues are retained for legacy tasks and explicit fallback, not ordinary
+task ingress. Slack is the default parent/thread bus (see `slack-tasks.md`).
+GitHub remains the code/PR/commit audit surface. Neither GitHub nor Slack is
+the atomic execution lock; workers still need the authenticated local control
+plane before machine execution or side effects.
 
-If a ChatGPT session can create an Issue, it creates and reads back the Issue.
-If `create_issue` is unavailable or returns a write-permission error, that
-session outputs a standalone `GITHUB_TASK_PACKET_READY` block. A local worker
+The built-in ChatGPT GitHub connector is read-only and must not be retried for
+Issue creation. For an explicit GitHub fallback, a session uses a separately
+verified write-capable tool or outputs a standalone
+`GITHUB_TASK_PACKET_READY` block. A local worker
 passes the complete block to `scripts/github_writer.py ingest`, reads back the
 created Issue, and returns its URL. The packet itself is not an Issue. See
 `protocol/chatgpt-task-entry.md` for the instruction shared with ChatGPT
-sessions and the exact packet format. Drive is reserved for large artifacts
-and emergency bootstrap.
+sessions and the exact fallback packet format. Drive is for large artifacts
+and emergency bootstrap, never the normal task inbox or execution lock.
 
 Each task Issue contains one machine-readable `bridge-task:v1` JSON marker.
 The marker preserves `task_id`, `status`, `current_owner`, `owner_history`,
@@ -20,7 +23,7 @@ same `task_id`. Issue state and fields coordinate agents, while the local HMAC,
 actor binding, authorization, nonce ledger, and control-plane lifecycle remain
 authoritative for claims and execution.
 
-New ordinary tasks are sticky by default and require all of these fields:
+New fallback tasks are sticky by default and require all of these fields:
 
 ```text
 assignment_mode: STICKY
