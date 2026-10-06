@@ -36,11 +36,31 @@ Specific work to complete.
 ````
 
 `current_owner` must be one of GPT, MAC_CODEX, MAC_CLAUDE, MAC_WORKBUDDY,
-WINDOWS_CODEX, WINDOWS_CLAUDE, or WINDOWS_WORKBUDDY. A missing owner is a
+WINDOWS_CODEX, WINDOWS_CLAUDE, WINDOWS_WORKBUDDY, or dot. A missing owner is a
 question for the user. `execution_target` is separate and never chooses the
 owner. `scripts/slack_task_packet.py parent` validates a copied parent via
 stdin, including Slack's normalized JSON-fence readback; it does not
 authenticate, claim, or post anything.
+
+## dot registration and capability boundary
+
+`dot` is the exact, case-sensitive agent ID; `DOT` and `Dot` are not aliases.
+It is distinct from GPT and all legacy IDs. Its role is personal-assistant
+coordination, research, task preparation, and progress reporting using the
+connected tools actually available for the user-authorized task.
+
+Registration permits packets to name `current_owner: dot`; it does not prove
+an online endpoint, an always-on listener/callback, local execution, a transport
+principal, or an authenticated atomic claim. No credentials or policy grants
+are provisioned by this registration. Before claiming machine work, verify the
+specific execution target and configured authenticated control plane. Otherwise
+report `LOCAL_CLAIM_BLOCKED`. Do not infer an execution target from `dot`.
+
+Existing owners remain sticky. Assigning a new task to dot must be explicit;
+transferring an existing task to or from dot requires the same user-verified
+`USER_OVERRIDE` as any other transfer. A HANDOFF is only a proposal. Keep the
+same task ID and RESULT → REVIEW → independent verification → DONE flow.
+Registration and validator tests are not live routing or execution acceptance.
 
 ## Thread events
 

@@ -1,6 +1,7 @@
 {
   "protocol_version": "2.0",
   "agents": [
+    {"id": "dot", "role": "personal assistant, task coordination, research, and progress reporting; connected tools only; registration does not provision an execution endpoint"},
     {"id": "GPT", "role": "top-level reasoning and coordination owner"},
     {"id": "MAC_CODEX", "role": "Codex worker on Mac"},
     {"id": "MAC_CLAUDE", "role": "Claude worker on Mac"},

@@ -39,6 +39,38 @@ class ControlPlaneAuthTests(unittest.TestCase):
         result=self.call("mac-codex","create",{"task_id":"M1","owner":"MAC_CODEX","objective":"test","acceptance":[]},"--task-id","M1","--owner","MAC_CODEX","--objective","test")
         self.assertEqual(result.returncode,0)
         self.assertEqual(json.loads(result.stdout)["current_owner"],"MAC_CODEX")
+    def test_dot_registration_does_not_authorize_another_principal(self):
+        before = self.state_bytes()
+        result = self.call("codex", "create",
+                           {"task_id":"DOT1", "owner":"dot", "objective":"test", "acceptance":[]},
+                           "--task-id", "DOT1", "--owner", "dot", "--objective", "test", check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(before, self.state_bytes())
+
+    def test_synthetic_dot_principal_obeys_review_and_verification_boundary(self):
+        # Isolated fixture only: this does not configure or prove a real dot endpoint.
+        self.secrets["DOT_TEST_SECRET"] = "isolated-dot-test-secret"
+        self.env["DOT_TEST_SECRET"] = self.secrets["DOT_TEST_SECRET"]
+        self.policy["principals"]["dot-fixture"] = {
+            "actor":"dot", "transport":"TEST_ONLY", "secret_env":"DOT_TEST_SECRET",
+            "credential_ref":"env:DOT_TEST_SECRET",
+            "scopes":["task:create", "task:transition:self"]}
+        self.policy_path.write_text(json.dumps(self.policy))
+        result = self.call("dot-fixture", "create",
+                           {"task_id":"DOT1", "owner":"dot", "objective":"test", "acceptance":[]},
+                           "--task-id", "DOT1", "--owner", "dot", "--objective", "test")
+        task = json.loads(result.stdout)
+        self.assertEqual(task["current_owner"], "dot")
+        self.assertEqual(task["auth_context"]["actor"], "dot")
+        self.call("dot-fixture", "transition", {"task_id":"DOT1", "status":"REVIEW", "owner":"dot"},
+                  "--task-id", "DOT1", "--status", "REVIEW", "--owner", "dot")
+        before = self.state_bytes()
+        result = self.call("dot-fixture", "verify", {"task_id":"DOT1"}, "--task-id", "DOT1", check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(before, self.state_bytes())
+        verified = self.call("verifier", "verify", {"task_id":"DOT1"}, "--task-id", "DOT1")
+        self.assertTrue(json.loads(verified.stdout)["verified"])
+
     def test_invalid_authentication_does_not_mutate_state(self):
         before=self.state_bytes(); result=self.call("codex","create",{"task_id":"T1","owner":"CODEX","objective":"test","acceptance":[]},"--task-id","T1","--owner","CODEX","--objective","test",signature="0"*64,check=False)
         self.assertNotEqual(result.returncode,0); self.assertEqual(before,self.state_bytes())

@@ -16,7 +16,7 @@ from bridge_agents import ALL_AGENTS, BRIDGE_AGENTS
 DEFAULT_REPOSITORY = "ian453-ui/gpt-codex-claude-bridge"
 MARKER_START = "<!-- bridge-task:v1\n"
 MARKER_END = "\n-->"
-OWNER_PATTERN = re.compile(r"^[A-Z][A-Z0-9_]{1,63}$")
+OWNER_PATTERN = re.compile(r"^(?:[A-Z][A-Z0-9_]{1,63}|dot)$")
 TASK_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{1,127}$")
 ASSIGNMENT_MODE = "STICKY"
 HANDOFF_POLICY = "USER_EXPLICIT_ONLY"
@@ -283,7 +283,7 @@ class GitHubTaskBus:
     def ingest(self, packet, local_execution_target):
         validate_record(packet, require_sticky=True)
         if packet["current_owner"] not in BRIDGE_AGENTS:
-            raise GitHubWriterError("new task packet requires one of the seven current owners")
+            raise GitHubWriterError("new task packet requires a registered current owner")
         if packet["status"] != "READY":
             raise GitHubWriterError("new task packet status must be READY")
         if packet["execution_target"] != local_execution_target:

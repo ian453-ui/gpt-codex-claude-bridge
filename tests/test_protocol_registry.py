@@ -9,7 +9,13 @@ from bridge_agents import ALL_AGENTS, BRIDGE_AGENTS, LEGACY_AGENTS
 
 
 class ProtocolRegistryTests(unittest.TestCase):
-    def test_exact_seven_agent_registry_and_legacy_read_aliases(self):
+    def test_exact_eight_agent_registry_and_legacy_read_aliases(self):
+        self.assertEqual(BRIDGE_AGENTS, {
+            "GPT", "MAC_CODEX", "MAC_CLAUDE", "MAC_WORKBUDDY", "WINDOWS_CODEX",
+            "WINDOWS_CLAUDE", "WINDOWS_WORKBUDDY", "dot"})
+        self.assertNotIn("dot", LEGACY_AGENTS)
+        self.assertNotIn("DOT", ALL_AGENTS)
+        self.assertNotIn("Dot", ALL_AGENTS)
         registry=json.loads((REPO/"state/agent_registry.example.json").read_text())
         self.assertEqual({item["id"] for item in registry["agents"]},BRIDGE_AGENTS)
         self.assertEqual(set(registry["legacy_read_aliases"]),LEGACY_AGENTS)
@@ -17,7 +23,13 @@ class ProtocolRegistryTests(unittest.TestCase):
     def test_task_and_handoff_schemas_accept_current_agents(self):
         task=json.loads((REPO/"protocol/task.schema.json").read_text())
         handoff=json.loads((REPO/"protocol/handoff.schema.json").read_text())
-        self.assertTrue(BRIDGE_AGENTS.issubset(task["properties"]["current_owner"]["enum"]))
+        enums = [task["properties"]["current_owner"]["enum"],
+                 task["$defs"]["auth_context"]["properties"]["actor"]["enum"],
+                 handoff["properties"]["from_agent"]["enum"],
+                 handoff["properties"]["to_agent"]["enum"]]
+        for values in enums:
+            self.assertEqual(set(values), ALL_AGENTS)
+            self.assertEqual(len(values), len(ALL_AGENTS))
         self.assertTrue(BRIDGE_AGENTS.issubset(handoff["properties"]["from_agent"]["enum"]))
         self.assertTrue(BRIDGE_AGENTS.issubset(handoff["properties"]["to_agent"]["enum"]))
 

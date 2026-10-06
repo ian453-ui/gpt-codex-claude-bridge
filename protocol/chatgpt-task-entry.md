@@ -52,7 +52,7 @@ next_user_action: Mac Codex 继续执行，读取下面的 GitHub task packet，
 ````
 
 Current owners: `GPT`, `MAC_CODEX`, `MAC_CLAUDE`, `MAC_WORKBUDDY`,
-`WINDOWS_CODEX`, `WINDOWS_CLAUDE`, `WINDOWS_WORKBUDDY`. The owner is an
+`WINDOWS_CODEX`, `WINDOWS_CLAUDE`, `WINDOWS_WORKBUDDY`, `dot`. The owner is an
 identity, not a machine selector. The execution target is a separate explicit
 runtime constraint. If either is uncertain, obtain the user's direction.
 

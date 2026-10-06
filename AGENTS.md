@@ -1,8 +1,11 @@
 # Agent Operating Contract
 
 - Registered agents: GPT, MAC_CODEX, MAC_CLAUDE, MAC_WORKBUDDY,
-  WINDOWS_CODEX, WINDOWS_CLAUDE, WINDOWS_WORKBUDDY. Legacy actor IDs remain
+  WINDOWS_CODEX, WINDOWS_CLAUDE, WINDOWS_WORKBUDDY, dot. Legacy actor IDs remain
   readable for historical task compatibility.
+- `dot` is case-sensitive and distinct from GPT. Registration grants no runtime
+  credentials, local execution, or always-on callbacks. See the capability
+  boundary in `protocol/slack-tasks.md`.
 - Preserve one `task_id` across every transfer. Never create a disconnected
   duplicate merely because ownership changes.
 - Read the latest task event and handoff before acting.

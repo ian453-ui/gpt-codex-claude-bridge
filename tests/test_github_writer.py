@@ -79,14 +79,36 @@ class GitHubWriterTests(unittest.TestCase):
         record = {"protocol_version":"2.0","task_id":"TASK-001","status":"READY","current_owner":"CODEX","owner_history":["CODEX"],"objective":"legacy"}
         decoded, _ = decode_task(encode_task(record, "hello")); self.assertEqual(decoded, record)
 
-    def test_seven_agent_exact_owner_isolation(self):
+    def test_eight_agent_exact_owner_isolation(self):
         provider=FakeProvider(); bus=GitHubTaskBus(provider)
-        self.assertEqual(len(BRIDGE_AGENTS),7)
+        self.assertEqual(len(BRIDGE_AGENTS),8)
         for index,owner in enumerate(sorted(BRIDGE_AGENTS),1):
-            target="MAC" if owner.startswith("MAC_") else "WINDOWS" if owner.startswith("WINDOWS_") else "GPT"
+            target="MAC" if owner.startswith("MAC_") else "WINDOWS" if owner.startswith("WINDOWS_") else owner
             bus.ingest(self.sticky_packet(f"TASK-{index:03}",owner,target),target)
         for owner in BRIDGE_AGENTS:
             found=bus.search_owner(owner); self.assertEqual(len(found),1); self.assertEqual(found[0]["task"]["current_owner"],owner)
+
+    def test_dot_packet_serialization_sticky_owner_and_case(self):
+        provider = FakeProvider(); bus = GitHubTaskBus(provider)
+        packet = self.sticky_packet("DOT-TASK", "dot", "EXPLICIT_TARGET")
+        parsed = parse_task_packet("GITHUB_TASK_PACKET_READY\ntarget_agent: dot\n"
+                                   "execution_target: EXPLICIT_TARGET\ntask_id: DOT-TASK\n"
+                                   "next_user_action: Wake dot with the complete packet\n"
+                                   "```json\n" + json.dumps(packet) + "\n```")
+        self.assertEqual(parsed, packet)
+        bus.ingest(parsed, "EXPLICIT_TARGET")
+        self.assertEqual(bus.read(1, requester="dot")["task"]["current_owner"], "dot")
+        with self.assertRaisesRegex(GitHubWriterError, "cross-agent read denied"):
+            bus.read(1, requester="GPT")
+        with self.assertRaisesRegex(GitHubWriterError, "USER_OVERRIDE"):
+            bus.update(1, "REVIEW", "GPT")
+        self.assertEqual(bus.read(1, requester="dot")["task"]["current_owner"], "dot")
+        value = bus.update(1, "REVIEW", "GPT", user_override=True)
+        self.assertEqual(value["task"]["owner_history"], ["dot", "GPT"])
+        self.assertEqual(value["task"]["task_id"], "DOT-TASK")
+        for alias in ("DOT", "Dot"):
+            with self.subTest(alias=alias), self.assertRaises(GitHubWriterError):
+                bus.ingest(self.sticky_packet("BAD-CASE", alias), "MAC")
 
     def test_sticky_owner_continuation_and_duplicate_conflict(self):
         provider=FakeProvider(); bus=GitHubTaskBus(provider); packet=self.sticky_packet()
@@ -160,7 +182,7 @@ class GitHubWriterTests(unittest.TestCase):
         packet=self.sticky_packet()
         with self.assertRaisesRegex(GitHubWriterError,"invalid current_owner"):
             bus.ingest(dict(packet,current_owner=None),"MAC")
-        with self.assertRaisesRegex(GitHubWriterError,"seven current owners"):
+        with self.assertRaisesRegex(GitHubWriterError,"registered current owner"):
             bus.ingest(dict(packet,current_owner="CODEX"),"MAC")
         with self.assertRaisesRegex(GitHubWriterError,"status must be READY"):
             bus.ingest(dict(packet,status="DONE"),"MAC")
