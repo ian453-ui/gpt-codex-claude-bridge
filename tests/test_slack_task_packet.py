@@ -5,6 +5,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "scripts"))
+from bridge_agents import BRIDGE_AGENTS
 from slack_task_packet import PacketError, apply_event, exact_owner_tasks, parse_event, parse_parent
 
 
@@ -59,6 +60,37 @@ class SlackTaskPacketTests(unittest.TestCase):
         message = parent().replace('"task_id": "BRIDGE-001",', '"task_id": "BRIDGE-001", "task_id": "OTHER",')
         with self.assertRaises(PacketError):
             parse_parent(message)
+
+    def test_all_owners_round_trip_and_exact_owner_isolation(self):
+        messages = [parent(owner, task_id=f"TASK-{i}", execution_target="EXPLICIT_TARGET")
+                    for i, owner in enumerate(sorted(BRIDGE_AGENTS))]
+        for owner in BRIDGE_AGENTS:
+            with self.subTest(owner=owner):
+                found = exact_owner_tasks(messages, owner)
+                self.assertEqual(len(found), 1)
+                self.assertEqual(found[0]["current_owner"], owner)
+                self.assertEqual(found[0]["execution_target"], "EXPLICIT_TARGET")
+                normalized = parent(owner).replace("```json\n{", "```{").replace("}\n```", "}```")
+                self.assertEqual(parse_parent(normalized)["current_owner"], owner)
+        for alias in ("DOT", "Dot", "dot "):
+            with self.subTest(alias=alias), self.assertRaises(PacketError):
+                parse_parent(parent(alias))
+            with self.assertRaises(PacketError):
+                exact_owner_tasks(messages, alias)
+
+    def test_dot_handoff_and_review_do_not_transfer_ownership(self):
+        for owner, target in (("dot", "GPT"), ("MAC_CODEX", "dot")):
+            for kind in ("CLAIM", "PROGRESS", "RESULT", "HANDOFF", "REVIEW", "DONE"):
+                event = parse_event(f"{kind} task_id: BRIDGE-001\nto_owner: {target}", "BRIDGE-001")
+                self.assertEqual(apply_event(owner, event), owner)
+            event = parse_event(f"USER_OVERRIDE task_id: BRIDGE-001\nauthorized_by: USER\nto_owner: {target}", "BRIDGE-001")
+            with self.assertRaises(PacketError):
+                apply_event(owner, event)
+            self.assertEqual(apply_event(owner, event, verified_user_override=True), target)
+        for alias in ("DOT", "Dot"):
+            event = parse_event(f"USER_OVERRIDE task_id: BRIDGE-001\nauthorized_by: USER\nto_owner: {alias}", "BRIDGE-001")
+            with self.assertRaises(PacketError):
+                apply_event("GPT", event, verified_user_override=True)
 
     def test_no_drive_or_github_dependency(self):
         source = (REPO / "scripts/slack_task_packet.py").read_text()

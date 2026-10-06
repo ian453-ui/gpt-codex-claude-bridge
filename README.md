@@ -5,6 +5,15 @@ CHATGPT, WORK, CODEX, and CLAUDE without losing its identity or audit trail.
 Every mutation is bound to a cryptographically verified transport principal and
 authorized as the corresponding bridge actor.
 
+## Registered agents
+
+Current owners are GPT, MAC_CODEX, MAC_CLAUDE, MAC_WORKBUDDY,
+WINDOWS_CODEX, WINDOWS_CLAUDE, WINDOWS_WORKBUDDY, and exactly lowercase `dot`.
+Legacy actor IDs remain readable. `dot` supports personal-assistant coordination,
+research, and progress reporting through available connected tools. Registry
+acceptance is not proof of a live endpoint or authenticated execution capability;
+see the [dot capability boundary](protocol/slack-tasks.md#dot-registration-and-capability-boundary).
+
 ## Security boundary and request flow
 
 ```text
@@ -191,7 +200,7 @@ python3 scripts/github_writer.py ingest --task-packet-file task_packet.txt --exe
 # or provide the same block on stdin with --task-packet-file -
 ```
 
-Raw JSON remains compatible. Packets must name one of the seven registered agents and include the sticky
+Raw JSON remains compatible. Packets must name one of the registered agents and include the sticky
 owner fields documented in `protocol/github-issues.md`. The writer rejects a
 missing owner, wrong execution target, unauthorized owner change, malformed
 packet, wrong repository, and conflicting duplicate task ID before Issue
@@ -201,7 +210,7 @@ ChatGPT-to-Codex channel exists, the user wake phrase is the transport trigger.
 ## Legacy Google Drive bootstrap adapter
 
 The historical `scripts/drive_inbound.py` adapter is retained for old `CODEX`
-tasks and emergency bootstrap only; it cannot claim the current seven-actor
+tasks and emergency bootstrap only; it cannot claim the current registered-actor
 packets and must not be installed as a recurring poller:
 
 ```text

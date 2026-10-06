@@ -55,7 +55,7 @@ def parse_parent(text):
     if record.get("status") != "READY":
         raise PacketError("new task status must be READY")
     if record.get("current_owner") not in BRIDGE_AGENTS:
-        raise PacketError("current_owner must be one of seven agents")
+        raise PacketError("current_owner must be a registered agent")
     for field, expected in (("assignment_mode", "STICKY"), ("handoff_policy", "USER_EXPLICIT_ONLY"),
                             ("cross_agent_read", "DENY_BY_DEFAULT"), ("transport", "SLACK_FIRST")):
         if record.get(field) != expected:
@@ -74,7 +74,7 @@ def parse_parent(text):
 
 def exact_owner_tasks(parents, owner):
     if owner not in BRIDGE_AGENTS:
-        raise PacketError("requester must be one of seven agents")
+        raise PacketError("requester must be a registered agent")
     result = []
     for parent in parents:
         try:

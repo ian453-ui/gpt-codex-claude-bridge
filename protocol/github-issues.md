@@ -32,8 +32,8 @@ cross_agent_read: DENY_BY_DEFAULT
 execution_target: <explicit runtime target>
 ```
 
-The seven current owners are GPT, MAC_CODEX, MAC_CLAUDE, MAC_WORKBUDDY,
-WINDOWS_CODEX, WINDOWS_CLAUDE, and WINDOWS_WORKBUDDY. Continuations retain the
+The eight current owners are GPT, MAC_CODEX, MAC_CLAUDE, MAC_WORKBUDDY,
+WINDOWS_CODEX, WINDOWS_CLAUDE, WINDOWS_WORKBUDDY, and dot. Continuations retain the
 same owner. A missing owner is a user question, not an auto-routing signal.
 Capability, cost, OS, and machine never reassign ownership. Takeover requires
 an explicit `USER_OVERRIDE`; review and read access do not imply takeover.
